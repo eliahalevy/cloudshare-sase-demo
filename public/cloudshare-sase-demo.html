@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CloudShare — Virtual IT Labs</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#1a1a2e;overflow:hidden;height:100vh}
+:root{
+  --cs-orange:#F05A28;--cs-orange-light:#FF7A4D;--cs-dark:#1B2A4A;
+  --cs-blue:#2C5282;--cs-light:#F7FAFC;--cs-green:#38A169;
+  --cs-gray:#718096;--cs-border:#E2E8F0;--cs-shadow:0 2px 12px rgba(0,0,0,.08);
+  --cs-card-radius:12px;--cs-red:#E53E3E;--cs-yellow:#ECC94B;
+}
+
+/* ─── Top Bar ─── */
+.topbar{display:flex;align-items:center;justify-content:space-between;height:56px;background:var(--cs-dark);padding:0 24px;position:fixed;top:0;left:0;right:0;z-index:1000}
+.topbar .logo-area{display:flex;align-items:center;gap:12px}
+.topbar .logo-area svg{height:28px;width:auto}
+.topbar .nav-links{display:flex;gap:24px}
+.topbar .nav-links a{color:rgba(255,255,255,.6);text-decoration:none;font-size:13px;font-weight:500;padding:4px 0;border-bottom:2px solid transparent;transition:all .15s}
+.topbar .nav-links a.active{color:#fff;border-bottom-color:var(--cs-orange)}
+.topbar .nav-links a:hover{color:#fff}
+.topbar .user-badge{display:flex;align-items:center;gap:8px;color:#fff;font-size:13px}
+.topbar .avatar{width:32px;height:32px;border-radius:50%;background:var(--cs-orange);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff}
+
+.screen{display:none;position:fixed;top:56px;left:0;right:0;bottom:0}
+.screen.active{display:flex}
+
+/* ─── Dashboard ─── */
+#customerDashboard{flex-direction:column;background:var(--cs-light);overflow-y:auto}
+.dash-container{padding:24px 32px;max-width:1400px;width:100%;margin:0 auto}
+
+/* Header row */
+.dash-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.dash-top h1{font-size:24px;font-weight:700;color:var(--cs-dark)}
+.dash-top p{color:var(--cs-gray);font-size:13px;margin-top:2px}
+.btn{border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--cs-orange);color:#fff}
+.btn-primary:hover{background:var(--cs-orange-light)}
+.btn-outline{background:transparent;border:2px solid var(--cs-border);color:var(--cs-dark)}
+.btn-outline:hover{border-color:var(--cs-orange);color:var(--cs-orange)}
+
+/* KPI Strip */
+.kpi-strip{display:flex;align-items:stretch;margin-bottom:20px;background:#fff;border-radius:var(--cs-card-radius);border:1px solid var(--cs-border);overflow:visible;height:88px;position:relative;z-index:1}
+.kpi-cell{display:flex;flex-direction:column;justify-content:center;padding:10px 20px;border-right:1px solid var(--cs-border);position:relative;cursor:default;transition:background .15s}
+.kpi-cell:last-child{border-right:none}
+.kpi-cell:hover{background:#FAFBFC}
+.kpi-title{font-size:10px;color:var(--cs-gray);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:6px}
+.kpi-cell.centered{align-items:center;text-align:center;flex:.5}
+.kpi-big-num{font-size:28px;font-weight:800;color:var(--cs-dark);line-height:1}
+/* Stacked bar */
+.kpi-cell.bar-cell{flex:1.4;overflow:visible}
+.bar-wrapper{position:relative}
+.bar-container{display:flex;align-items:center;width:100%;height:20px;border-radius:4px;overflow:visible}
+.bar-seg-wrap{height:100%;position:relative;cursor:pointer;overflow:visible}
+.bar-seg-fill{width:100%;height:100%;transition:opacity .15s}
+.bar-seg-wrap:first-child .bar-seg-fill{border-radius:4px 0 0 4px}
+.bar-seg-wrap:last-child .bar-seg-fill{border-radius:0 4px 4px 0}
+.bar-seg-wrap:hover .bar-seg-fill{opacity:.75}
+.bar-legend{display:flex;gap:10px;margin-top:5px;flex-wrap:wrap}
+.bar-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#4A5568}
+.bar-legend-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.bar-tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--cs-dark);color:#fff;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;z-index:300;pointer-events:none;opacity:0;transition:opacity .15s;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.bar-tip::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--cs-dark)}
+.bar-seg-wrap:hover .bar-tip{opacity:1}
+/* Completion bar */
+.kpi-bar-track{width:100%;height:8px;background:#EDF2F7;border-radius:4px;overflow:hidden;position:relative}
+.kpi-bar-fill{height:100%;border-radius:4px;transition:width .8s ease}
+.kpi-bar-indicator{position:absolute;top:-3px;width:2px;height:14px;background:var(--cs-dark);border-radius:1px;transition:left .8s ease}
+/* Engagement */
+.kpi-cell.eng-cell{flex:.9;align-items:flex-start}
+.eng-row{display:flex;align-items:center;gap:10px}
+.eng-num{font-size:24px;font-weight:800;color:var(--cs-green);line-height:1}
+.kpi-spark{flex-shrink:0}
+/* Completion cell */
+.kpi-cell.comp-cell{flex:1.2}
+.comp-num{font-size:24px;font-weight:800;color:var(--cs-dark);line-height:1}
+/* KPI Tooltip */
+.kpi-tooltip{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--cs-dark);color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.6;white-space:nowrap;z-index:200;pointer-events:none;opacity:0;transition:opacity .15s;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.kpi-tooltip::before{content:'';position:absolute;top:-5px;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:5px solid var(--cs-dark)}
+.kpi-cell:hover .kpi-tooltip{opacity:1}
+
+/* Table */
+.table-wrap{background:#fff;border-radius:var(--cs-card-radius);border:1px solid var(--cs-border);overflow:hidden}
+.table-header-bar{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--cs-border)}
+.table-header-bar h3{font-size:15px;font-weight:600;color:var(--cs-dark)}
+.table-header-bar .search{padding:8px 14px;border:1.5px solid var(--cs-border);border-radius:8px;font-size:13px;width:240px;font-family:inherit}
+.table-header-bar .search:focus{outline:none;border-color:var(--cs-orange)}
+table{width:100%;border-collapse:collapse}
+thead{background:#F8FAFC}
+th{padding:12px 16px;text-align:left;font-size:11px;font-weight:700;color:var(--cs-gray);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--cs-border)}
+td{padding:14px 16px;border-bottom:1px solid var(--cs-border);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover{background:#FAFBFC}
+tr.clickable{cursor:pointer}
+.prospect-cell{display:flex;align-items:center;gap:10px}
+.prospect-cell .co-logo{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;overflow:hidden}
+.prospect-cell .co-logo img{width:100%;height:100%;object-fit:cover}
+.prospect-cell .co-name{font-weight:600;color:var(--cs-dark)}
+.prospect-cell .co-name small{display:block;font-weight:400;color:var(--cs-gray);font-size:11px}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-right:4px}
+.tag-blue{background:#EBF4FF;color:var(--cs-blue)}
+.tag-green{background:#C6F6D5;color:#276749}
+.tag-orange{background:#FFF5F0;color:var(--cs-orange)}
+.tag-gray{background:#EDF2F7;color:#718096}
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.status-pill .dot{width:7px;height:7px;border-radius:50%}
+.status-completed .dot{background:var(--cs-green)}.status-completed{background:#F0FFF4;color:#276749}
+.status-active .dot{background:var(--cs-orange)}.status-active{background:#FFF5F0;color:#9C4221}
+.status-sent .dot{background:var(--cs-blue)}.status-sent{background:#EBF4FF;color:var(--cs-blue)}
+.status-expired .dot{background:#A0AEC0}.status-expired{background:#EDF2F7;color:#4A5568}
+.progress-bar{width:100px;height:6px;background:#EDF2F7;border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px}
+.progress-bar .fill{height:100%;border-radius:3px}
+.progress-text{font-size:12px;color:var(--cs-gray);font-weight:600}
+.score-badge{font-weight:700;font-size:14px}
+.actions-cell{display:flex;gap:6px}
+.action-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--cs-border);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all .15s}
+.action-btn:hover{background:#FFF5F0;border-color:var(--cs-orange)}
+
+/* ─── Modal ─── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:16px;width:560px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-head{padding:24px 28px 0;display:flex;justify-content:space-between;align-items:center}
+.modal-head h2{font-size:20px;font-weight:700;color:var(--cs-dark)}
+.modal-close{width:32px;height:32px;border-radius:8px;border:none;background:var(--cs-light);cursor:pointer;font-size:18px;color:var(--cs-gray);display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:#EDF2F7}
+.modal-body{padding:20px 28px 28px}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--cs-dark);margin-bottom:6px}
+.form-group input,.form-group select{width:100%;padding:10px 14px;border:1.5px solid var(--cs-border);border-radius:8px;font-size:14px;font-family:inherit;transition:border .15s}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--cs-orange)}
+.form-group .hint{font-size:11px;color:var(--cs-gray);margin-top:4px}
+.logo-upload{border:2px dashed var(--cs-border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .15s;position:relative}
+.logo-upload:hover{border-color:var(--cs-orange);background:#FFF5F0}
+.logo-upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.logo-upload p{font-size:13px;color:var(--cs-gray)}
+.logo-upload.has-file{border-color:var(--cs-green);background:#F0FFF4}
+.logo-upload.has-file p{color:var(--cs-green);font-weight:600}
+.capability-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cap-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--cs-border);border-radius:8px;font-size:13px;cursor:pointer;transition:all .15s;position:relative}
+.cap-item.enabled{border-color:var(--cs-orange);background:#FFF5F0;font-weight:600}
+.cap-item.enabled .cap-check{background:var(--cs-orange);color:#fff}
+.cap-item.coming-soon{opacity:.55;cursor:default}
+.cap-item .cap-check{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--cs-border);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.cap-item .coming-badge{position:absolute;top:-6px;right:8px;background:#ECC94B;color:#744210;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px}
+.modal-footer{padding:0 28px 24px;display:flex;gap:10px;justify-content:flex-end}
+
+/* ─── Split View ─── */
+#splitView{display:none}
+#splitView.active{display:flex}
+.panel-left{width:30%;min-width:300px;background:#fff;border-right:2px solid var(--cs-border);display:flex;flex-direction:column;overflow:hidden}
+.panel-right{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--cs-light)}
+.panel-label{padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;text-align:center}
+.panel-label.customer{background:var(--cs-blue);color:#fff}
+.panel-label.prospect{background:var(--cs-orange);color:#fff}
+.monitor-head{padding:20px;border-bottom:1px solid var(--cs-border)}
+.monitor-head .prospect-info{display:flex;align-items:center;gap:12px}
+.monitor-head .prospect-logo{width:44px;height:44px;border-radius:10px;background:var(--cs-border);display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden}
+.monitor-head .prospect-logo img{width:100%;height:100%;object-fit:cover}
+.monitor-head h3{font-size:16px;font-weight:700}
+.monitor-head p{font-size:12px;color:var(--cs-gray)}
+.monitor-status{padding:16px 20px;background:#F0FFF4;border-bottom:1px solid var(--cs-border)}
+.monitor-status .status-line{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--cs-green)}
+.monitor-status .status-line .pulse{width:10px;height:10px;border-radius:50%;background:var(--cs-green);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.timeline{flex:1;overflow-y:auto;padding:16px 20px}
+.timeline-item{display:flex;gap:12px;padding-bottom:20px;position:relative}
+.timeline-item:not(:last-child)::after{content:'';position:absolute;left:15px;top:32px;bottom:0;width:2px;background:var(--cs-border)}
+.timeline-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;z-index:1}
+.timeline-dot.done{background:#C6F6D5;color:var(--cs-green)}
+.timeline-dot.active{background:#FFF5F0;color:var(--cs-orange);box-shadow:0 0 0 3px rgba(240,90,40,.2)}
+.timeline-dot.pending{background:#EDF2F7;color:#A0AEC0}
+.timeline-content h4{font-size:13px;font-weight:600;margin-bottom:2px}
+.timeline-content p{font-size:12px;color:var(--cs-gray)}
+.timeline-content .time{font-size:11px;color:#A0AEC0;margin-top:2px}
+.metrics-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:16px 20px;border-top:1px solid var(--cs-border)}
+.metric-box{background:var(--cs-light);border-radius:8px;padding:12px;text-align:center}
+.metric-box .val{font-size:22px;font-weight:700;color:var(--cs-dark)}
+.metric-box .label{font-size:11px;color:var(--cs-gray);margin-top:2px}
+.prospect-content{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.setup-panel{max-width:680px;width:100%;margin:0 auto;padding:32px 24px}
+.setup-panel h2{font-size:22px;font-weight:700;margin-bottom:4px}
+.setup-panel .sub{font-size:14px;color:var(--cs-gray);margin-bottom:24px}
+.setup-panel h3{font-size:15px;font-weight:600;margin-bottom:12px;color:var(--cs-dark)}
+.sites-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:28px}
+.site-btn{padding:10px 8px;border:1.5px solid var(--cs-border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:all .15s;font-size:12px}
+.site-btn:hover{border-color:var(--cs-orange);background:#FFF5F0}
+.site-btn.selected{border-color:var(--cs-orange);background:#FFF5F0;font-weight:600}
+.site-btn .flag{font-size:22px;display:block;margin-bottom:4px}
+.site-btn .city{font-size:11px;color:var(--cs-gray)}
+.site-btn.selected .city{color:var(--cs-orange)}
+.users-inputs{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.user-input-row{display:flex;align-items:center;gap:10px}
+.user-input-row .num{width:28px;height:28px;border-radius:50%;background:var(--cs-light);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--cs-gray);flex-shrink:0}
+.user-input-row input{flex:1;padding:10px 14px;border:1.5px solid var(--cs-border);border-radius:8px;font-size:14px}
+.user-input-row input:focus{outline:none;border-color:var(--cs-orange)}
+.sase-dash{flex:1;display:flex;flex-direction:column}
+.sase-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#fff;border-bottom:1px solid var(--cs-border)}
+.sase-topbar h3{font-size:16px;font-weight:700;color:var(--cs-dark)}
+.sase-metrics{display:flex;gap:20px}
+.sase-metric{text-align:center}
+.sase-metric .v{font-size:18px;font-weight:700;color:var(--cs-dark)}
+.sase-metric .l{font-size:10px;color:var(--cs-gray);text-transform:uppercase;letter-spacing:.5px}
+.map-container{flex:1;position:relative;background:#1a2744;overflow:hidden}
+.map-container canvas{width:100%;height:100%}
+.guide-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,.97);border-top:2px solid var(--cs-orange);padding:14px 20px;display:flex;align-items:center;gap:16px;z-index:10}
+.guide-bar .step-indicator{display:flex;gap:6px}
+.guide-bar .step-dot{width:10px;height:10px;border-radius:50%;background:#E2E8F0}
+.guide-bar .step-dot.done{background:var(--cs-green)}
+.guide-bar .step-dot.active{background:var(--cs-orange);box-shadow:0 0 0 3px rgba(240,90,40,.25)}
+.guide-bar .step-text{flex:1}
+.guide-bar .step-text h4{font-size:14px;font-weight:700;color:var(--cs-dark)}
+.guide-bar .step-text p{font-size:12px;color:var(--cs-gray)}
+.btn-sm{padding:8px 16px;font-size:13px;border-radius:8px;font-weight:600}
+.fw-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3000;display:none;align-items:center;justify-content:center}
+.fw-modal.show{display:flex}
+.fw-modal .modal{width:520px}
+.fw-form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fw-highlight{animation:highlightField .8s ease}
+@keyframes highlightField{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 3px rgba(240,90,40,.3)}}
+.deploy-overlay{position:fixed;inset:0;background:rgba(27,42,74,.92);z-index:4000;display:none;align-items:center;justify-content:center;flex-direction:column}
+.deploy-overlay.show{display:flex}
+.deploy-card{background:#fff;border-radius:16px;padding:40px;text-align:center;max-width:480px;width:90%}
+.deploy-card h2{font-size:22px;font-weight:700;margin-bottom:8px}
+.deploy-card p{color:var(--cs-gray);font-size:14px;margin-bottom:24px}
+.deploy-nodes{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:24px}
+.deploy-node{padding:8px 14px;border-radius:8px;background:var(--cs-light);border:1.5px solid var(--cs-border);font-size:12px;font-weight:600;transition:all .4s}
+.deploy-node.deployed{border-color:var(--cs-green);background:#F0FFF4;color:var(--cs-green)}
+.deploy-progress{width:100%;height:6px;background:#EDF2F7;border-radius:3px;overflow:hidden;margin-bottom:16px}
+.deploy-progress .bar{height:100%;background:var(--cs-green);border-radius:3px;transition:width .4s}
+.toast{position:fixed;top:70px;right:20px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.15);padding:16px 20px;z-index:5000;max-width:320px;transform:translateX(400px);transition:transform .3s ease;border-left:4px solid var(--cs-orange)}
+.toast.show{transform:translateX(0)}
+.toast h4{font-size:14px;font-weight:700;margin-bottom:4px}
+.toast p{font-size:12px;color:var(--cs-gray)}
+.completion-banner{background:linear-gradient(135deg,#F0FFF4,#C6F6D5);border-radius:12px;padding:24px;text-align:center;margin:20px}
+.big-check{font-size:48px;margin-bottom:8px}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#CBD5E0;border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ─── Top Bar ─── -->
+<div class="topbar">
+  <div class="logo-area">
+    <svg width="197" height="36" viewBox="0 0 197 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M17.698 10.376c-.017-.694-.04-1.284-.045-1.875-.01-1.195.295-2.315.778-3.402.593-1.337 1.495-2.425 2.634-3.315a6.64 6.64 0 012.244-1.243c.94-.361 1.913-.519 2.906-.539 1.53-.031 2.985.285 4.342 1.025 1.415.77 2.541 1.844 3.365 3.218.31.515.524 1.09.756 1.649.521 1.257.547 2.586.425 3.902-.12 1.299-.571 2.516-1.283 3.622a8.42 8.42 0 01-1.47 1.758c-.238.216-.206.294.108.414 1.747.674 3.01 1.851 3.788 3.566.522 1.153.592 2.36.462 3.575-.13 1.219-.65 2.3-1.438 3.249-.9 1.082-2.036 1.787-3.383 2.164-.853.239-1.734.294-2.596.159-1.185-.186-2.287-.627-3.224-1.412l-.284-.17c-1.336 3.928-3.876 6.716-7.68 8.283-2.871 1.182-5.86 1.317-8.797.375C2.66 33.246-.443 27.227.051 21.574c.177-2.02.807-3.916 1.877-5.655a15.37 15.37 0 014.218-4.283 14.25 14.25 0 015.625-1.953c2.03-.231 3.992.064 5.928.693zM6.564 22.776c-.09 3.598 2.905 6.625 6.573 6.665 1.863.021 3.485-.679 4.795-2.006 1.261-1.278 1.904-2.86 1.906-4.642.001-1.78-.63-3.372-1.891-4.646-1.286-1.298-2.863-1.996-4.712-2.016-3.695-.038-6.768 3.073-6.671 6.645zM26.383 4.33c-2.417-.093-4.425 2.12-4.423 4.395.002 2.438 2.058 4.468 4.417 4.47 2.42 0 4.46-1.993 4.462-4.462.002-2.364-2.02-4.496-4.456-4.403zm7.18 17.437c.013-1.678-1.382-3.349-3.37-3.33-1.88.018-3.34 1.483-3.322 3.374.019 1.933 1.573 3.311 3.344 3.317 1.843.005 3.376-1.581 3.348-3.361z" fill="#F05A28"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M116.796 13.216c.055-.933.019-1.814.026-2.694.007-.872.001-1.743.001-2.602.339-.092 3.154-.107 3.631-.025.007.158.022.325.022.493.001 3.735.005 7.47-.004 11.206-.001.593-.049 1.187-.099 1.779-.072.855-.381 1.647-.767 2.398-.557 1.082-1.343 1.987-2.316 2.727-.93.707-1.973 1.187-3.104 1.432-.973.211-1.967.219-2.961.077-1.392-.2-2.634-.751-3.733-1.607-1.037-.806-1.819-1.824-2.372-3.024-.307-.665-.478-1.366-.622-2.072-.089-.437-.085-.896-.083-1.346.005-.916.165-1.814.482-2.67.465-1.258 1.199-2.341 2.203-3.24.881-.788 1.892-1.343 3.006-1.698.486-.154 1.006-.235 1.516-.271.617-.045 1.243-.042 1.86.003.713.051 1.398.262 2.054.545.315.135.615.301.924.45.09.044.186.077.336.138zm.036 6.69c-.018-.226-.001-.593-.088-.934-.244-.96-.671-1.817-1.405-2.521-1.286-1.234-3.164-1.573-4.757-.722-1.635.874-2.377 2.331-2.528 4.128-.033.396.03.785.12 1.177.118.507.271.991.519 1.45.433.802 1.052 1.435 1.85 1.853.746.391 1.553.532 2.417.421.817-.105 1.529-.408 2.143-.929 1.167-.99 1.726-2.267 1.729-3.923z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M196.077 21.535h-11.855c-.005.106-.029.178-.007.233.411 1.053 1.055 1.909 2.078 2.444.867.453 1.795.54 2.736.388.752-.122 1.434-.45 1.994-.983.196-.186.396-.269.668-.265 1.126.013 2.252.005 3.377.005h.404c-1.056 2.789-4.509 5.339-8.663 4.565-4.739-.882-7.133-5.077-6.535-9.114.35-2.366 1.589-4.255 3.616-5.567 1.814-1.174 3.816-1.553 5.922-1.124 4.719.961 7.157 5.437 6.265 9.418zm-3.832-3.28c-.516-1.936-2.394-3.237-4.605-2.953-1.019.131-1.917.562-2.591 1.378-.382.464-.7.96-.844 1.575h8.04z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M151.166 28.078h-3.59c-.008-.18-.021-.334-.021-.488-.001-2.451.012-4.901-.006-7.353-.009-1.28-.382-2.461-1.257-3.428-.953-1.051-2.13-1.572-3.568-1.423-1.401.145-2.431.87-3.182 2.033-.561.869-.805 1.825-.804 2.854.003 2.424.001 4.848.001 7.273v.462c-.309.108-3.139.13-3.571.037-.09-.297-.104-19.76-.01-20.184h3.571c.004.444.007.889.01 1.333v1.351c0 .437 0 .875 0 1.312 0 .449 0 .897 0 1.36.352.027.578-.19.822-.318.663-.347 1.364-.558 2.087-.711.572-.121 1.154-.142 1.738-.128 1.516.037 2.903.483 4.17 1.309 1.341.875 2.335 2.058 2.97 3.519.39.898.64 1.846.64 2.84v7.869c0 .144 0 .287 0 .474z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M169.116 28.08h-3.654c0-.399 0-.774 0-1.223-.307.15-.542.259-.771.378-.706.373-1.454.611-2.241.748-1.003.173-2.007.157-2.999-.034-.006-.193-1.947-.393-2.801-.964-1.22-.817-2.167-1.882-2.81-3.206-.319-.655-.54-1.341-.675-2.06-.12-.645-.143-1.29-.116-1.938.035-.852.219-1.675.533-2.468.639-1.621 1.697-2.904 3.16-3.844.543-.349 1.128-.612 1.742-.831.824-.292 1.668-.406 2.526-.42 1.078-.017 2.127.17 3.129.589 1.332.557 2.443 1.401 3.319 2.547.622.814 1.071 1.71 1.354 2.704.242.853.305 1.712.305 2.585v7.074c0 .169 0 .339 0 .558zm-3.647-7.942c-.015-1.003-.249-1.824-.672-2.611-.84-1.561-2.823-2.657-4.725-2.13-.956.265-1.728.774-2.328 1.546-.571.732-.909 1.555-1.013 2.493-.122 1.104.049 2.145.605 3.09.721 1.228 1.749 2.044 3.225 2.228 1.173.147 2.211-.146 3.108-.874 1.211-.986 1.76-2.306 1.8-3.742z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M84.598 20.03c.138 4.35-3.564 8.081-8.01 8.079-4.41-.003-8.059-3.62-8.05-8.058.008-4.342 3.512-8.024 8.032-8.036 4.466-.012 8.12 3.665 8.028 8.015zm-3.597-.07c-.03-.186-.09-.484-.121-.784-.073-.716-.366-1.345-.753-1.936-.686-1.048-1.659-1.694-2.878-1.929-.868-.167-1.732-.024-2.506.392-1.627.874-2.427 2.305-2.552 4.113-.068.982.18 1.916.691 2.765.718 1.192 1.716 1.97 3.136 2.166 1.136.157 2.156-.106 3.056-.79 1.276-.969 1.827-2.312 1.927-3.997z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M86.471 11.99h3.617c.01.187.026.354.026.522.001 2.398-.009 4.796.008 7.194.005.78.078 1.558.403 2.287.508 1.14 1.277 2.034 2.457 2.5 1.344.53 2.64.397 3.85-.406.64-.424 1.128-.988 1.485-1.669.395-.751.589-1.563.583-2.419-.016-2.504-.006-5.008-.006-7.512v-.497c.298-.098 3.133-.124 3.689-.038.008.106.023.22.023.335.002 2.597.045 5.194-.016 7.79-.033 1.405-.378 2.76-1.125 3.997-.69 1.142-1.579 2.076-2.708 2.776-.882.547-1.835.908-2.868 1.079-1.021.168-2.038.156-3.04-.046-1-.202-1.932-.605-2.788-1.178-1.355-.91-2.333-2.125-2.981-3.61-.152-.349-.242-.725-.347-1.093-.25-.874-.27-1.77-.266-2.671.01-2.293.003-4.585.003-6.878v-.458z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M57.2 22.656h3.932c-.389 1.27-1.08 2.312-2.003 3.192-1.569 1.496-3.446 2.254-5.625 2.253-4.467 0-8.132-3.659-8.014-8.262.11-4.277 3.547-7.8 8.046-7.824 4.1-.021 7.003 3.06 7.558 5.492-.12.008-.235.021-.35.021-.977.002-2.01-.004-3.044.006-.244.002-.402-.052-.55-.28-.556-.857-1.325-1.462-2.3-1.786-.857-.284-1.722-.289-2.569.019-1.531.558-2.5 1.67-2.883 3.226-.504 2.045.008 3.827 1.65 5.207.54.453 1.184.716 1.899.825.727.11 1.42.04 2.101-.211.886-.328 1.564-.916 2.088-1.694l.065-.18z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M122.354 22.92c.103-.017.153-.032.204-.032 1.047-.002 2.093-.005 3.14-.002.291.001.295.022.402.325.137.387.304.754.592 1.063.844.912 2.295.724 2.846-.41.272-.562.038-1.348-.505-1.682-.369-.227-.769-.41-1.171-.574-.915-.371-1.869-.644-2.744-1.116-1.093-.59-1.865-1.465-2.103-2.684-.46-2.354.489-4.294 2.695-5.34.821-.39 1.69-.454 2.585-.423.817.027 1.567.246 2.25.671 1.121.698 1.882 1.679 2.196 2.977.049.204.053.42.078.63.02.16-.041.256-.211.265l-.119.005c-.967 0-1.934 0-2.901-.002-.065 0-.13-.016-.206-.026-.052-.121-.118-.238-.153-.364-.254-.903-1.473-1.31-2.332-.534-.491.444-.518 1.285.068 1.742.382.299.82.476 1.276.616.919.283 1.828.591 2.701 1.001 1.14.535 1.868 1.418 2.177 2.616.139.542.198 1.115.109 1.694-.088.564-.192 1.112-.438 1.635-.407.87-1.025 1.551-1.787 2.119-1.167.868-2.502 1.132-3.904.97-1.874-.218-3.334-1.127-4.19-2.853-.346-.7-.48-1.472-.555-2.287z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M63.006 28.167V7.877h3.798v20.249c-.278.086-2.977.119-3.798.04z" fill="#fff"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M178.956 15.18c-.508.133-.988.224-1.443.385-.792.281-1.417.809-1.909 1.481-.65.889-.975 1.883-.968 2.996.014 2.503.004 5.007.004 7.511v.5c-.169.011-.297.028-.425.028-.927.002-1.855.003-2.782.001-.43-.001-.441-.011-.441-.451-.001-2.663-.036-5.326.012-7.988.038-2.227.971-4.085 2.601-5.586.794-.731 1.711-1.258 2.735-1.627.771-.277 1.562-.365 2.359-.46.075-.009.153.013.224.02.086.31.106 2.731.034 3.191z" fill="#fff"/>
+    </svg>
+  </div>
+  <div class="nav-links">
+    <a href="#" class="active">Demos</a>
+    <a href="#">Analytics</a>
+    <a href="#">Templates</a>
+    <a href="#">Settings</a>
+  </div>
+  <div class="user-badge">
+    <span>Elia Halevy</span>
+    <div class="avatar">EH</div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 1 — Dashboard ═══ -->
+<div id="customerDashboard" class="screen active">
+  <div class="dash-container">
+    <div class="dash-top">
+      <div>
+        <h1>Demo Environments</h1>
+        <p>Manage and track interactive product demos for your prospects</p>
+      </div>
+      <button class="btn btn-primary" onclick="openNewDemoModal()">+ Create New Demo</button>
+    </div>
+
+    <!-- KPI Strip -->
+    <div class="kpi-strip" id="kpiStrip">
+      <!-- 1. Total Demos -->
+      <div class="kpi-cell centered">
+        <div class="kpi-title">Total Demos</div>
+        <div class="kpi-big-num" id="kpiTotalDemos">7</div>
+        <div class="kpi-tooltip">Total demo environments<br>created for prospects</div>
+      </div>
+      <!-- 2. User Story (stacked bar) -->
+      <div class="kpi-cell bar-cell">
+        <div class="kpi-title">User Story</div>
+        <div class="bar-wrapper"><div class="bar-container" id="storyBar"></div></div>
+        <div class="bar-legend" id="storyLegend"></div>
+        <div class="kpi-tooltip">Capability usage across all demos.<br>Hover bar segments for details.</div>
+      </div>
+      <!-- 3. Status (stacked bar) -->
+      <div class="kpi-cell bar-cell">
+        <div class="kpi-title">Status</div>
+        <div class="bar-wrapper"><div class="bar-container" id="statusBar"></div></div>
+        <div class="bar-legend" id="statusLegend"></div>
+        <div class="kpi-tooltip">Demo status distribution.<br>Hover bar segments for details.</div>
+      </div>
+      <!-- 4. Avg Engagement -->
+      <div class="kpi-cell eng-cell">
+        <div class="kpi-title">Avg. Engagement</div>
+        <div class="eng-row">
+          <div class="eng-num" id="kpiEngagement">81</div>
+          <svg class="kpi-spark" viewBox="0 0 64 28" width="64" height="28"><polyline points="2,24 10,20 20,18 30,13 40,15 50,9 62,5" fill="none" stroke="#38A169" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="2,24 10,20 20,18 30,13 40,15 50,9 62,5 62,28 2,28" fill="rgba(56,161,105,.1)" stroke="none"/></svg>
+        </div>
+        <div class="kpi-tooltip">Engagement score (0–100) based on<br>clicks, time spent &amp; task completion.<br>Trend: last 7 days.</div>
+      </div>
+      <!-- 5. Avg Completion Rate -->
+      <div class="kpi-cell comp-cell">
+        <div class="kpi-title">Avg. Completion</div>
+        <div class="comp-num" id="kpiCompletion">62%</div>
+        <div style="margin-top:6px;position:relative;width:100%">
+          <div class="kpi-bar-track"><div class="kpi-bar-fill" id="completionFill" style="width:0%;background:linear-gradient(90deg,var(--cs-orange),var(--cs-green))"></div><div class="kpi-bar-indicator" id="completionInd" style="left:0%"></div></div>
+        </div>
+        <div class="kpi-tooltip">Average progress across all demos.<br>3 fully completed, 1 not started.</div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <div class="table-header-bar">
+        <h3>All Demos</h3>
+        <input type="text" class="search" placeholder="Search prospects..." oninput="filterTable(this.value)">
+      </div>
+      <table id="demoTable">
+        <thead>
+          <tr>
+            <th>Prospect</th>
+            <th>Scenario</th>
+            <th>User Story</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>Engagement</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="demoTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ New Demo Modal ═══ -->
+<div class="modal-overlay" id="newDemoModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Create New Demo</h2>
+      <button class="modal-close" onclick="closeNewDemoModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Prospect Company Name</label>
+        <input type="text" id="prospectName" placeholder="e.g. CrowdStrike">
+      </div>
+      <div class="form-group">
+        <label>Company Logo</label>
+        <div class="logo-upload" id="logoUpload">
+          <input type="file" accept="image/*" id="logoFile" onchange="handleLogo(this)">
+          <div style="font-size:24px">&#128193;</div>
+          <p id="logoLabel">Click to upload logo</p>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Demo Scenario</label>
+        <select id="demoScenario">
+          <option value="sase">SASE — Secure Access Service Edge</option>
+          <option value="sdwan" disabled>SD-WAN — Coming Soon</option>
+          <option value="xdr" disabled>XDR — Coming Soon</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>User Story — Select SASE Capabilities</label>
+        <div class="hint" style="margin-bottom:8px">Choose which capabilities to include in the demo</div>
+        <div class="capability-grid" id="capGrid"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeNewDemoModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="sendToClient()">Send to Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN 2 — Split View ═══ -->
+<div id="splitView" class="screen">
+  <div class="panel-left">
+    <div class="panel-label customer">&#128100; Customer View — Demo Manager</div>
+    <div class="monitor-head">
+      <div class="prospect-info">
+        <div class="prospect-logo" id="monitorLogo">?</div>
+        <div><h3 id="monitorName">—</h3><p>SASE Interactive Demo</p></div>
+      </div>
+    </div>
+    <div class="monitor-status">
+      <div class="status-line"><div class="pulse"></div><span id="liveStatus">Prospect is setting up environment...</span></div>
+    </div>
+    <div class="timeline" id="timeline"></div>
+    <div class="metrics-row">
+      <div class="metric-box"><div class="val" id="metricTime">0:00</div><div class="label">Time Spent</div></div>
+      <div class="metric-box"><div class="val" id="metricProgress">0%</div><div class="label">Progress</div></div>
+      <div class="metric-box"><div class="val" id="metricClicks">0</div><div class="label">Interactions</div></div>
+      <div class="metric-box"><div class="val" id="metricScore">—</div><div class="label">Engagement</div></div>
+    </div>
+  </div>
+  <div class="panel-right">
+    <div class="panel-label prospect">&#127760; Prospect View — Interactive Demo</div>
+    <div class="prospect-content" id="prospectContent"></div>
+  </div>
+</div>
+
+<!-- FW Modal -->
+<div class="fw-modal" id="fwModal">
+  <div class="modal">
+    <div class="modal-head"><h2>Create Firewall Rule</h2><button class="modal-close" onclick="closeFwModal()">&times;</button></div>
+    <div class="modal-body">
+      <div style="background:#FFF5F0;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px"><strong>&#9888;&#65039; Scenario:</strong> Suspicious outbound traffic detected from your London office to an unknown IP range.</div>
+      <div class="form-group"><label>Rule Name</label><input type="text" id="fwRuleName" value="Block Suspicious Outbound"></div>
+      <div class="fw-form-row">
+        <div class="form-group"><label>Action</label><select id="fwAction"><option>Block</option><option>Allow</option><option>Log Only</option></select></div>
+        <div class="form-group"><label>Protocol</label><select id="fwProto"><option>TCP</option><option>UDP</option><option>Any</option></select></div>
+      </div>
+      <div class="fw-form-row">
+        <div class="form-group"><label>Source</label><input type="text" id="fwSrc" placeholder="e.g. 10.0.0.0/8"></div>
+        <div class="form-group"><label>Destination</label><input type="text" id="fwDst" placeholder="e.g. 198.51.100.0/24"></div>
+      </div>
+      <div class="form-group"><label>Ports</label><input type="text" id="fwPorts" placeholder="e.g. 443, 8080"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeFwModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="deployRule()">Deploy Rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Deploy Overlay -->
+<div class="deploy-overlay" id="deployOverlay">
+  <div class="deploy-card">
+    <h2>Deploying Firewall Rule</h2>
+    <p>Propagating to all edge locations...</p>
+    <div class="deploy-progress"><div class="bar" id="deployBar" style="width:0%"></div></div>
+    <div class="deploy-nodes" id="deployNodes"></div>
+    <button class="btn btn-primary" id="deployDoneBtn" style="display:none" onclick="finishDemo()">View Results</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"><h4 id="toastTitle"></h4><p id="toastMsg"></p></div>
+
+<script>
+// ─── State ───
+var state = {
+  prospectName:'', logoDataUrl:null, selectedCaps:['fwaas'],
+  sites:[], users:['','',''], clicks:0, startTime:null, currentStep:0
+};
+
+var CAPS = [
+  {id:'fwaas',name:'FWaaS (Firewall as a Service)',enabled:true},
+  {id:'ztna',name:'ZTNA (Zero Trust)',enabled:false},
+  {id:'swg',name:'Secure Web Gateway',enabled:false},
+  {id:'casb',name:'CASB',enabled:false},
+  {id:'sdwan',name:'SD-WAN',enabled:false},
+  {id:'dlp',name:'Data Loss Prevention',enabled:false},
+  {id:'dns',name:'DNS Security',enabled:false},
+  {id:'rbi',name:'Remote Browser Isolation',enabled:false},
+];
+
+var SITES = [
+  {id:'nyc',city:'New York',flag:'\u{1F1FA}\u{1F1F8}',lat:40.7,lon:-74},
+  {id:'lon',city:'London',flag:'\u{1F1EC}\u{1F1E7}',lat:51.5,lon:-0.1},
+  {id:'fra',city:'Frankfurt',flag:'\u{1F1E9}\u{1F1EA}',lat:50.1,lon:8.7},
+  {id:'tlv',city:'Tel Aviv',flag:'\u{1F1EE}\u{1F1F1}',lat:32.1,lon:34.8},
+  {id:'sin',city:'Singapore',flag:'\u{1F1F8}\u{1F1EC}',lat:1.3,lon:103.8},
+  {id:'tok',city:'Tokyo',flag:'\u{1F1EF}\u{1F1F5}',lat:35.7,lon:139.7},
+  {id:'syd',city:'Sydney',flag:'\u{1F1E6}\u{1F1FA}',lat:-33.9,lon:151.2},
+  {id:'mum',city:'Mumbai',flag:'\u{1F1EE}\u{1F1F3}',lat:19.1,lon:72.9},
+  {id:'sao',city:'Sao Paulo',flag:'\u{1F1E7}\u{1F1F7}',lat:-23.6,lon:-46.6},
+  {id:'dub',city:'Dubai',flag:'\u{1F1E6}\u{1F1EA}',lat:25.2,lon:55.3},
+  {id:'par',city:'Paris',flag:'\u{1F1EB}\u{1F1F7}',lat:48.9,lon:2.3},
+  {id:'tor',city:'Toronto',flag:'\u{1F1E8}\u{1F1E6}',lat:43.7,lon:-79.4},
+];
+
+// ─── Demo Data ───
+var DEMOS = [
+  {name:'CrowdStrike',logo:'logos/CrowdStrike.png',initials:'CS',color:'#E53E3E',scenario:'SASE',caps:['FWaaS','ZTNA','SWG'],status:'completed',progress:100,score:94,created:'Apr 10, 2026',contact:'Mike Johnson'},
+  {name:'Palo Alto Networks',logo:'logos/palo.jpeg',initials:'PA',color:'#F05A28',scenario:'SASE',caps:['FWaaS','CASB'],status:'active',progress:68,score:82,created:'Apr 9, 2026',contact:'Lisa Wang'},
+  {name:'Fortinet',logo:'logos/fortinet.png',initials:'FN',color:'#EE3124',scenario:'SASE',caps:['FWaaS','SD-WAN','DLP'],status:'active',progress:45,score:71,created:'Apr 8, 2026',contact:'David Park'},
+  {name:'Zscaler',logo:'logos/zscalar.png',initials:'ZS',color:'#2563EB',scenario:'SASE',caps:['FWaaS','SWG'],status:'completed',progress:100,score:89,created:'Apr 5, 2026',contact:'Rachel Green'},
+  {name:'Check Point',logo:'logos/checkpoint.png',initials:'CP',color:'#C2185B',scenario:'SASE',caps:['FWaaS'],status:'sent',progress:0,score:null,created:'Apr 4, 2026',contact:'Amir Levy'},
+  {name:'SentinelOne',logo:'logos/sentinelone.png',initials:'S1',color:'#7C3AED',scenario:'SASE',caps:['FWaaS','ZTNA'],status:'active',progress:22,score:58,created:'Apr 3, 2026',contact:'Tom Baker'},
+  {name:'Cisco',logo:'logos/cisco.webp',initials:'CI',color:'#049FD9',scenario:'SASE',caps:['FWaaS','SD-WAN','CASB','DLP'],status:'completed',progress:100,score:91,created:'Mar 28, 2026',contact:'Karen Lee'},
+];
+
+function renderTable(filter){
+  var tb = document.getElementById('demoTableBody');
+  tb.innerHTML = '';
+  var f = (filter||'').toLowerCase();
+  DEMOS.forEach(function(d,i){
+    if(f && d.name.toLowerCase().indexOf(f)===-1) return;
+    var capTags = d.caps.map(function(c){return '<span class="tag tag-blue">'+c+'</span>';}).join('');
+    var statusClass = d.status==='completed'?'status-completed':d.status==='active'?'status-active':d.status==='sent'?'status-sent':'status-expired';
+    var statusLabel = d.status.charAt(0).toUpperCase()+d.status.slice(1);
+    var progressColor = d.progress===100?'var(--cs-green)':d.progress>50?'var(--cs-orange)':d.progress>0?'var(--cs-yellow)':'#CBD5E0';
+    var scoreColor = d.score>=90?'var(--cs-green)':d.score>=70?'var(--cs-orange)':d.score?'var(--cs-yellow)':'#A0AEC0';
+    var tr = document.createElement('tr');
+    tr.className = 'clickable';
+    tr.onclick = function(){launchDemoForRow(d);};
+    tr.innerHTML =
+      '<td><div class="prospect-cell"><div class="co-logo" style="background:'+d.color+'">'+(d.logo?'<img src="'+d.logo+'" alt="'+d.name+'" onerror="this.style.display=\'none\';this.parentElement.textContent=\''+d.initials+'\'">':d.initials)+'</div><div class="co-name">'+d.name+'<small>'+d.contact+'</small></div></div></td>'+
+      '<td><span class="tag tag-orange">'+d.scenario+'</span></td>'+
+      '<td>'+capTags+'</td>'+
+      '<td><span class="status-pill '+statusClass+'"><span class="dot"></span>'+statusLabel+'</span></td>'+
+      '<td><div class="progress-bar"><div class="fill" style="width:'+d.progress+'%;background:'+progressColor+'"></div></div><span class="progress-text">'+d.progress+'%</span></td>'+
+      '<td><span class="score-badge" style="color:'+scoreColor+'">'+(d.score?d.score+'%':'\u2014')+'</span></td>'+
+      '<td style="color:var(--cs-gray);font-size:12px">'+d.created+'</td>'+
+      '<td><div class="actions-cell"><div class="action-btn" title="View" onclick="event.stopPropagation()">&#128065;</div><div class="action-btn" title="Resend" onclick="event.stopPropagation()">&#128228;</div></div></td>';
+    tb.appendChild(tr);
+  });
+}
+
+renderTable();
+
+function filterTable(v){renderTable(v);}
+
+// ─── KPI: Stacked Bars, Engagement & Completion ───
+function buildStackedBar(barId, legendId, segments) {
+  var bar = document.getElementById(barId);
+  var legend = document.getElementById(legendId);
+  if (!bar || !legend) return;
+  var total = 0;
+  segments.forEach(function(s){ total += s.value; });
+  bar.innerHTML = '';
+  legend.innerHTML = '';
+  segments.forEach(function(s, i) {
+    var pct = Math.round((s.value / total) * 100);
+    var wrap = document.createElement('div');
+    wrap.className = 'bar-seg-wrap';
+    wrap.style.flex = s.value;
+    var fill = document.createElement('div');
+    fill.className = 'bar-seg-fill';
+    fill.style.background = s.color;
+    if (i === 0) fill.style.borderRadius = '4px 0 0 4px';
+    if (i === segments.length - 1) fill.style.borderRadius = '0 4px 4px 0';
+    var tip = document.createElement('div');
+    tip.className = 'bar-tip';
+    tip.textContent = s.name + ' \u2014 ' + s.value + ' (' + pct + '%)';
+    wrap.appendChild(fill);
+    wrap.appendChild(tip);
+    bar.appendChild(wrap);
+    // Legend dot
+    var li = document.createElement('div');
+    li.className = 'bar-legend-item';
+    li.innerHTML = '<span class="bar-legend-dot" style="background:' + s.color + '"></span>' + s.name;
+    legend.appendChild(li);
+  });
+}
+
+function renderKpis() {
+  // 1. Total demos
+  document.getElementById('kpiTotalDemos').textContent = DEMOS.length;
+
+  // 2. User Story stacked bar
+  var capCount = {};
+  DEMOS.forEach(function(d) {
+    d.caps.forEach(function(c) { capCount[c] = (capCount[c] || 0) + 1; });
+  });
+  var capColors = {'FWaaS':'#F05A28','ZTNA':'#2C5282','SWG':'#38A169','CASB':'#7C3AED','SD-WAN':'#2563EB','DLP':'#E53E3E','DNS':'#ECC94B','RBI':'#049FD9'};
+  var storySegs = [];
+  Object.keys(capCount).forEach(function(k) {
+    storySegs.push({name: k, value: capCount[k], color: capColors[k] || '#718096'});
+  });
+  storySegs.sort(function(a,b){ return b.value - a.value; });
+  buildStackedBar('storyBar', 'storyLegend', storySegs);
+
+  // 3. Status stacked bar
+  var statusCount = {};
+  DEMOS.forEach(function(d) {
+    var s = d.status.charAt(0).toUpperCase() + d.status.slice(1);
+    statusCount[s] = (statusCount[s] || 0) + 1;
+  });
+  var statusColors = {'Completed':'#38A169','Active':'#F05A28','Sent':'#2C5282','Expired':'#A0AEC0'};
+  var statusSegs = [];
+  Object.keys(statusCount).forEach(function(k) {
+    statusSegs.push({name: k, value: statusCount[k], color: statusColors[k] || '#718096'});
+  });
+  buildStackedBar('statusBar', 'statusLegend', statusSegs);
+
+  // 4. Avg engagement
+  var avgEng = 0, engCount = 0;
+  DEMOS.forEach(function(d) { if (d.score) { avgEng += d.score; engCount++; } });
+  avgEng = engCount ? Math.round(avgEng / engCount) : 0;
+  document.getElementById('kpiEngagement').textContent = avgEng;
+
+  // 5. Avg completion + animate bar
+  var avgComp = 0;
+  DEMOS.forEach(function(d) { avgComp += d.progress; });
+  avgComp = Math.round(avgComp / DEMOS.length);
+  document.getElementById('kpiCompletion').textContent = avgComp + '%';
+  setTimeout(function() {
+    document.getElementById('completionFill').style.width = avgComp + '%';
+    document.getElementById('completionInd').style.left = avgComp + '%';
+  }, 100);
+}
+
+renderKpis();
+
+function launchDemoForRow(d){
+  state.prospectName = d.name;
+  state.startTime = Date.now();
+  startSplitView();
+}
+
+// ─── Capability Grid ───
+function renderCapGrid(){
+  var g = document.getElementById('capGrid'); g.innerHTML='';
+  CAPS.forEach(function(c){
+    var el = document.createElement('div');
+    el.className = 'cap-item'+(c.enabled?'':' coming-soon')+(state.selectedCaps.includes(c.id)?' enabled':'');
+    el.innerHTML='<div class="cap-check">'+(state.selectedCaps.includes(c.id)?'\u2713':'')+'</div>'+c.name+(!c.enabled?'<span class="coming-badge">SOON</span>':'');
+    if(c.enabled){el.onclick=function(){
+      if(state.selectedCaps.includes(c.id))state.selectedCaps=state.selectedCaps.filter(function(x){return x!==c.id;});
+      else state.selectedCaps.push(c.id);renderCapGrid();
+    };}
+    g.appendChild(el);
+  });
+}
+renderCapGrid();
+
+function openNewDemoModal(){document.getElementById('newDemoModal').classList.add('show');}
+function closeNewDemoModal(){document.getElementById('newDemoModal').classList.remove('show');}
+function handleLogo(input){
+  if(input.files&&input.files[0]){
+    var reader=new FileReader();
+    reader.onload=function(e){state.logoDataUrl=e.target.result;document.getElementById('logoUpload').classList.add('has-file');document.getElementById('logoLabel').textContent=input.files[0].name;};
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+function sendToClient(){
+  state.prospectName=document.getElementById('prospectName').value||'New Prospect';
+  closeNewDemoModal();state.startTime=Date.now();
+  setTimeout(function(){startSplitView();},400);
+}
+
+// ─── Split View ───
+function startSplitView(){
+  document.getElementById('customerDashboard').classList.remove('active');
+  document.getElementById('splitView').classList.add('active');
+  document.getElementById('monitorName').textContent=state.prospectName;
+  var ml=document.getElementById('monitorLogo');
+  if(state.logoDataUrl){ml.innerHTML='<img src="'+state.logoDataUrl+'" style="width:100%;height:100%;object-fit:cover">';}
+  else{ml.textContent=state.prospectName.substring(0,2).toUpperCase();ml.style.background='var(--cs-orange)';ml.style.color='#fff';}
+  renderTimeline();renderSetupStep();startTimer();
+}
+
+function startTimer(){setInterval(function(){if(!state.startTime)return;var s=Math.floor((Date.now()-state.startTime)/1000);var m=Math.floor(s/60);var sec=s%60;document.getElementById('metricTime').textContent=m+':'+(sec<10?'0':'')+sec;},1000);}
+
+var STEPS=[
+  {icon:'\u2699\uFE0F',title:'Environment Setup',desc:'Selecting sites and users'},
+  {icon:'\u{1F5FA}\uFE0F',title:'Network Exploration',desc:'Viewing SASE topology'},
+  {icon:'\u{1F525}',title:'Firewall Rule Creation',desc:'Configuring security rule'},
+  {icon:'\u{1F680}',title:'Rule Deployment',desc:'Propagating to edge nodes'},
+  {icon:'\u2705',title:'Demo Complete',desc:'All tasks finished'}
+];
+function renderTimeline(){
+  var t=document.getElementById('timeline');t.innerHTML='';
+  STEPS.forEach(function(s,i){
+    var st=i<state.currentStep?'done':i===state.currentStep?'active':'pending';
+    var item=document.createElement('div');item.className='timeline-item';
+    item.innerHTML='<div class="timeline-dot '+st+'">'+s.icon+'</div><div class="timeline-content"><h4>'+s.title+'</h4><p>'+s.desc+'</p>'+(st==='done'?'<div class="time">Completed</div>':st==='active'?'<div class="time" style="color:var(--cs-orange)">In progress...</div>':'')+'</div>';
+    t.appendChild(item);
+  });
+  document.getElementById('metricProgress').textContent=Math.min(100,Math.round((state.currentStep/4)*100))+'%';
+  document.getElementById('metricClicks').textContent=state.clicks;
+  document.getElementById('metricScore').textContent=state.clicks>10?'High':state.clicks>5?'Medium':'\u2014';
+}
+function advanceStep(n){
+  state.currentStep=n;renderTimeline();
+  var texts=['Prospect is setting up environment...','Prospect is exploring the network map...','Prospect is creating a firewall rule...','Deploying rule to edge locations...','Demo completed successfully!'];
+  document.getElementById('liveStatus').textContent=texts[n]||'';
+}
+function trackClick(){state.clicks++;document.getElementById('metricClicks').textContent=state.clicks;if(state.clicks>10)document.getElementById('metricScore').textContent='High';else if(state.clicks>5)document.getElementById('metricScore').textContent='Medium';}
+
+function renderSetupStep(){
+  var c=document.getElementById('prospectContent');
+  c.innerHTML='<div class="setup-panel"><h2>Welcome to Your SASE Demo</h2><p class="sub">Configure your environment to get started</p><h3>Select Your Office Locations <span style="font-size:12px;color:var(--cs-gray)">(up to 5)</span></h3><div class="sites-grid" id="sitesGrid"></div><h3>Remote Users</h3><div class="users-inputs"><div class="user-input-row"><div class="num">1</div><input type="text" placeholder="User name" id="u1"></div><div class="user-input-row"><div class="num">2</div><input type="text" placeholder="User name" id="u2"></div><div class="user-input-row"><div class="num">3</div><input type="text" placeholder="User name" id="u3"></div></div><button class="btn btn-primary" style="width:100%;padding:14px" onclick="launchEnvironment()">Launch Lab Environment \u2192</button></div>';
+  renderSitesGrid();
+}
+function renderSitesGrid(){
+  var g=document.getElementById('sitesGrid');if(!g)return;g.innerHTML='';
+  SITES.forEach(function(s){
+    var sel=state.sites.includes(s.id);var btn=document.createElement('div');
+    btn.className='site-btn'+(sel?' selected':'');
+    btn.innerHTML='<span class="flag">'+s.flag+'</span><span class="city">'+s.city+'</span>';
+    btn.onclick=function(){trackClick();if(sel)state.sites=state.sites.filter(function(x){return x!==s.id;});else if(state.sites.length<5)state.sites.push(s.id);renderSitesGrid();};
+    g.appendChild(btn);
+  });
+}
+function launchEnvironment(){
+  trackClick();
+  state.users=[document.getElementById('u1').value||'Alex Chen',document.getElementById('u2').value||'Sarah Kim',document.getElementById('u3').value||'James Patel'];
+  if(state.sites.length===0)state.sites=['nyc','lon','sin'];
+  advanceStep(1);renderSaseDashboard();showToast('Environment Ready','Your SASE network is live. Explore the topology map.');
+}
+
+var mapCanvas,mapCtx,animFrame;
+function renderSaseDashboard(){
+  var c=document.getElementById('prospectContent');
+  var ss=SITES.filter(function(s){return state.sites.includes(s.id);});
+  c.innerHTML='<div class="sase-dash"><div class="sase-topbar"><h3>SASE Network Overview</h3><div class="sase-metrics"><div class="sase-metric"><div class="v">'+ss.length+'</div><div class="l">Sites</div></div><div class="sase-metric"><div class="v">'+state.users.length+'</div><div class="l">Users</div></div><div class="sase-metric"><div class="v" id="fwRuleCount">0</div><div class="l">FW Rules</div></div><div class="sase-metric"><div class="v" id="blockedCount" style="color:var(--cs-green)">0</div><div class="l">Blocked</div></div></div></div><div class="map-container"><canvas id="mapCanvas"></canvas><div class="guide-bar" id="guideBar"></div></div></div>';
+  setTimeout(function(){initMap();renderGuideBar();},50);
+}
+function renderGuideBar(){
+  var bar=document.getElementById('guideBar');if(!bar)return;
+  var steps=[
+    {title:'Explore Your Network',desc:'Your sites and users are connected through the SASE cloud.',btn:'Continue \u2192',action:function(){trackClick();advanceStep(2);renderGuideBar();}},
+    {title:'Create a Firewall Rule',desc:'Threat detected! Suspicious outbound traffic from London.',btn:'Open Rule Builder',action:function(){trackClick();openFwModal();}},
+    {title:'Rule Deployed!',desc:'Firewall rule is active across all edge nodes.',btn:'View Summary',action:function(){trackClick();finishDemo();}}
+  ];
+  var si=Math.min(state.currentStep-1,2);if(si<0)return;var s=steps[si];
+  bar.innerHTML='<div class="step-indicator">'+steps.map(function(_,i){return'<div class="step-dot '+(i<si?'done':i===si?'active':'')+'"></div>';}).join('')+'</div><div class="step-text"><h4>Step '+(si+1)+'/3: '+s.title+'</h4><p>'+s.desc+'</p></div><button class="btn btn-primary btn-sm" id="guideBtn">'+s.btn+'</button>';
+  document.getElementById('guideBtn').addEventListener('click',s.action);
+}
+
+var particles=[];
+function initMap(){
+  mapCanvas=document.getElementById('mapCanvas');if(!mapCanvas)return;
+  var ct=mapCanvas.parentElement;var rect=ct.getBoundingClientRect();var dpr=window.devicePixelRatio||1;
+  mapCanvas.width=rect.width*dpr;mapCanvas.height=rect.height*dpr;mapCanvas.style.width=rect.width+'px';mapCanvas.style.height=rect.height+'px';
+  mapCtx=mapCanvas.getContext('2d');mapCtx.scale(dpr,dpr);if(animFrame)cancelAnimationFrame(animFrame);drawMap();
+}
+function drawMap(){
+  var W=mapCanvas.clientWidth,H=mapCanvas.clientHeight,ctx=mapCtx;ctx.clearRect(0,0,W,H);
+  var bg=ctx.createRadialGradient(W/2,H/2,50,W/2,H/2,W*.7);bg.addColorStop(0,'#1e3a5f');bg.addColorStop(1,'#0f1f35');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+  for(var i=0;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+  for(var i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+  drawWorldOutline(ctx,W,H);
+  function toXY(lat,lon){return{x:(lon+180)/360*W,y:(90-lat)/180*H};}
+  var hub={x:W/2,y:H/2};
+  var t=Date.now()/1000;
+  for(var r=0;r<3;r++){var rr=35+((t*20+r*25)%60);ctx.beginPath();ctx.arc(hub.x,hub.y,rr,0,Math.PI*2);ctx.strokeStyle='rgba(240,90,40,'+(0.15-rr/400)+')';ctx.lineWidth=1.5;ctx.stroke();}
+  ctx.beginPath();ctx.arc(hub.x,hub.y,30,0,Math.PI*2);var hg=ctx.createRadialGradient(hub.x,hub.y,5,hub.x,hub.y,30);hg.addColorStop(0,'#F05A28');hg.addColorStop(1,'rgba(240,90,40,.2)');ctx.fillStyle=hg;ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 9px system-ui';ctx.textAlign='center';ctx.fillText('SASE',hub.x,hub.y-2);ctx.fillText('CLOUD',hub.x,hub.y+9);
+  var ss=SITES.filter(function(s){return state.sites.includes(s.id);});
+  ss.forEach(function(site){
+    var p=toXY(site.lat,site.lon);
+    var lg=ctx.createLinearGradient(p.x,p.y,hub.x,hub.y);lg.addColorStop(0,'rgba(44,82,130,.5)');lg.addColorStop(1,'rgba(240,90,40,.3)');
+    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(hub.x,hub.y);ctx.strokeStyle=lg;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(p.x,p.y,18,0,Math.PI*2);ctx.fillStyle='rgba(44,82,130,.2)';ctx.fill();
+    ctx.beginPath();ctx.arc(p.x,p.y,14,0,Math.PI*2);ctx.fillStyle='rgba(44,82,130,.85)';ctx.fill();ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='16px serif';ctx.textAlign='center';ctx.fillText(site.flag,p.x,p.y+6);ctx.font='bold 10px system-ui';ctx.fillStyle='rgba(255,255,255,.9)';ctx.fillText(site.city,p.x,p.y+30);
+    if(Math.random()<.04)particles.push({x:p.x,y:p.y,tx:hub.x,ty:hub.y,t:0,speed:.006+Math.random()*.008});
+    if(Math.random()<.02)particles.push({x:hub.x,y:hub.y,tx:p.x,ty:p.y,t:0,speed:.005+Math.random()*.007});
+  });
+  state.users.forEach(function(u,i){
+    var angle=(i/state.users.length)*Math.PI*2-Math.PI/2;var r=Math.min(W,H)*.32;var ux=hub.x+Math.cos(angle)*r;var uy=hub.y+Math.sin(angle)*r;
+    ctx.beginPath();ctx.moveTo(ux,uy);ctx.lineTo(hub.x,hub.y);ctx.strokeStyle='rgba(56,161,105,.3)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(ux,uy,14,0,Math.PI*2);ctx.fillStyle='rgba(56,161,105,.15)';ctx.fill();
+    ctx.beginPath();ctx.arc(ux,uy,10,0,Math.PI*2);ctx.fillStyle='rgba(56,161,105,.8)';ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 8px system-ui';ctx.textAlign='center';ctx.fillText(u.split(' ').map(function(w){return w[0];}).join(''),ux,uy+3);
+    ctx.font='9px system-ui';ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillText(u,ux,uy+24);
+    if(Math.random()<.02)particles.push({x:ux,y:uy,tx:hub.x,ty:hub.y,t:0,speed:.007+Math.random()*.006});
+  });
+  for(var j=particles.length-1;j>=0;j--){
+    var pt=particles[j];pt.t+=pt.speed;if(pt.t>=1){particles.splice(j,1);continue;}
+    var px=pt.x+(pt.tx-pt.x)*pt.t;var py=pt.y+(pt.ty-pt.y)*pt.t;
+    ctx.beginPath();ctx.arc(px,py,2.5,0,Math.PI*2);ctx.fillStyle='rgba(240,90,40,'+(1-pt.t)+')';ctx.fill();
+    var px2=pt.x+(pt.tx-pt.x)*Math.max(0,pt.t-.03);var py2=pt.y+(pt.ty-pt.y)*Math.max(0,pt.t-.03);
+    ctx.beginPath();ctx.moveTo(px2,py2);ctx.lineTo(px,py);ctx.strokeStyle='rgba(240,90,40,'+(0.5-pt.t*0.5)+')';ctx.lineWidth=1.5;ctx.stroke();
+  }
+  animFrame=requestAnimationFrame(drawMap);
+}
+function drawWorldOutline(ctx,W,H){
+  function toXY(lat,lon){return{x:(lon+180)/360*W,y:(90-lat)/180*H};}
+  [[[-10,70],[50,-130],[60,-110],[70,-80],[55,-60],[30,-80],[25,-100],[15,-90]],[[10,-80],[0,-50],[-10,-40],[-35,-55],[-55,-70],[-50,-75],[-20,-70],[5,-77]],[[35,-10],[40,0],[48,0],[55,10],[60,30],[50,40],[45,30],[38,25],[35,10]],[[35,-10],[35,10],[30,30],[10,40],[0,42],[-15,40],[-35,25],[-35,18],[-5,10],[5,-5],[15,-15]],[[55,30],[60,60],[55,80],[40,110],[30,120],[20,110],[10,105],[25,90],[30,70],[35,50],[40,40]],[[-15,130],[-20,150],[-30,150],[-35,140],[-30,115],[-20,115]]].forEach(function(pts){
+    ctx.beginPath();pts.forEach(function(p,i){var xy=toXY(p[0],p[1]);if(i===0)ctx.moveTo(xy.x,xy.y);else ctx.lineTo(xy.x,xy.y);});ctx.closePath();ctx.fillStyle='rgba(255,255,255,.03)';ctx.fill();ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;ctx.stroke();
+  });
+}
+
+function openFwModal(){
+  document.getElementById('fwModal').classList.add('show');advanceStep(2);
+  setTimeout(function(){var e=document.getElementById('fwSrc');e.value='10.1.0.0/16';e.classList.add('fw-highlight');showToast('Auto-detected','Source IP identified from London office subnet');},800);
+  setTimeout(function(){var e=document.getElementById('fwDst');e.value='198.51.100.0/24';e.classList.add('fw-highlight');},1600);
+  setTimeout(function(){var e=document.getElementById('fwPorts');e.value='443, 8080';e.classList.add('fw-highlight');},2400);
+}
+function closeFwModal(){document.getElementById('fwModal').classList.remove('show');}
+function deployRule(){
+  trackClick();closeFwModal();advanceStep(3);document.getElementById('deployOverlay').classList.add('show');
+  var nodes=document.getElementById('deployNodes');var ss=SITES.filter(function(s){return state.sites.includes(s.id);});
+  nodes.innerHTML=ss.map(function(s){return'<div class="deploy-node" id="dn-'+s.id+'">'+s.flag+' '+s.city+'</div>';}).join('');
+  var done=0;ss.forEach(function(s,i){
+    setTimeout(function(){document.getElementById('dn-'+s.id).classList.add('deployed');done++;document.getElementById('deployBar').style.width=(done/ss.length*100)+'%';if(done===ss.length)setTimeout(function(){document.getElementById('deployDoneBtn').style.display='inline-block';},500);},(i+1)*800);
+  });
+}
+function finishDemo(){
+  document.getElementById('deployOverlay').classList.remove('show');advanceStep(4);
+  var fe=document.getElementById('fwRuleCount');if(fe)fe.textContent='1';var be=document.getElementById('blockedCount');if(be){be.textContent='47';be.style.color='#E53E3E';}
+  document.getElementById('prospectContent').innerHTML='<div style="flex:1;display:flex;align-items:center;justify-content:center"><div class="completion-banner" style="max-width:520px;padding:40px"><div class="big-check">\u{1F389}</div><h3 style="font-size:22px;color:#276749">Demo Complete!</h3><p style="margin-bottom:20px;font-size:14px;color:#38A169">You\'ve configured a SASE environment with firewall protection across '+state.sites.length+' global locations.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center"><div style="background:#fff;border-radius:8px;padding:14px"><div style="font-size:24px;font-weight:700;color:var(--cs-dark)">'+state.sites.length+'</div><div style="font-size:11px;color:var(--cs-gray)">Sites Protected</div></div><div style="background:#fff;border-radius:8px;padding:14px"><div style="font-size:24px;font-weight:700;color:var(--cs-dark)">'+state.users.length+'</div><div style="font-size:11px;color:var(--cs-gray)">Users Secured</div></div><div style="background:#fff;border-radius:8px;padding:14px"><div style="font-size:24px;font-weight:700;color:var(--cs-green)">1</div><div style="font-size:11px;color:var(--cs-gray)">FW Rule Active</div></div><div style="background:#fff;border-radius:8px;padding:14px"><div style="font-size:24px;font-weight:700;color:#E53E3E">47</div><div style="font-size:11px;color:var(--cs-gray)">Threats Blocked</div></div></div><button class="btn btn-primary" style="margin-top:24px;width:100%;padding:14px" onclick="location.reload()">Start New Demo</button></div></div>';
+  document.getElementById('liveStatus').textContent='Demo completed successfully!';document.getElementById('metricProgress').textContent='100%';document.getElementById('metricScore').textContent='High';
+  showToast('Demo Complete','Prospect finished all steps. Engagement: High.');
+}
+function showToast(title,msg){document.getElementById('toastTitle').textContent=title;document.getElementById('toastMsg').textContent=msg;document.getElementById('toast').classList.add('show');setTimeout(function(){document.getElementById('toast').classList.remove('show');},4000);}
+window.addEventListener('resize',function(){if(mapCanvas&&mapCanvas.parentElement)initMap();});
+</script>
+</body>
+</html>
